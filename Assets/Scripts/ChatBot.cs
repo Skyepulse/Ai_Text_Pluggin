@@ -11,8 +11,6 @@ using System.IO;
 
 public class ChatBot : MonoBehaviour
 {
-    public TMP_InputField promptInputField;
-    public Button sendButton;
     public TMP_Text responseText;
 
     private string OpenAIkey = "My_KEY";
@@ -50,7 +48,7 @@ public class ChatBot : MonoBehaviour
                 model = "gpt-3.5-turbo",
                 messages = new[]
                 {
-                    new { role = "user", content = promptInputField.text }
+                    new { role = "user", content = userPrompt }
                 },
                 temperature = 0.7,
                 max_tokens = 25
@@ -74,13 +72,7 @@ public class ChatBot : MonoBehaviour
         }
     }
 
-    public async void SendPromptToChat()
-    {
-        string prompt = promptInputField.text;
-        string response = await SendPromptToChatAsync(prompt);
-        responseText.text = response;
-    }
-
+  
     private void Start()
     {
         string path = Application.dataPath + "/../apikey.txt";

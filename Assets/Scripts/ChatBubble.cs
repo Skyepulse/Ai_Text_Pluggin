@@ -13,8 +13,8 @@ public class ChatBubble : MonoBehaviour
     [SerializeField]
     private GameObject _follower;
 
-    private float _offsetY = 1.2f;
-    private float _offsetX = 0.01f;
+    private float _offsetY = 6f;
+    private float _offsetX = 0.16f;
     private float _defaultScale = 0.01f;
     private Camera _camera;
 
