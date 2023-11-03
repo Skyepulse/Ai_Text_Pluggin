@@ -8,6 +8,8 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using TMPro;
 using System.IO;
+using System;
+using UnityEngine.Experimental.Rendering;
 
 public class ChatBot : MonoBehaviour
 {
@@ -28,10 +30,18 @@ public class ChatBot : MonoBehaviour
             public string content { get; set; }
         }
 
-        public List<Choice> choices { get; set; }
+        public class Usage
+        {
+            public int prompt_tokens { get; set; }
+            public int completion_tokens { get; set; }
+            public int total_tokens { get; set; }
+        }
+
+        public Choice[] choices { get; set; }
+        public Usage usage { get; set; }
     }
 
-    public async Task<string> SendPromptToChatAsync(string userPrompt)
+    public async Task<Tuple<string, int>> SendPromptToChatAsync(string userPrompt, int tokennum)
     {
         using (var client = new HttpClient())
         {
@@ -51,7 +61,7 @@ public class ChatBot : MonoBehaviour
                     new { role = "user", content = userPrompt }
                 },
                 temperature = 0.7,
-                max_tokens = 25
+                max_tokens = tokennum
             };
             var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
 
@@ -63,7 +73,9 @@ public class ChatBot : MonoBehaviour
             if (response.IsSuccessStatusCode)
             {
                 OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
-                return apiResponse.choices[0].message.content.Trim(); // returning the assistant's message content
+                string messageContent = apiResponse.choices[0].message.content.Trim();
+                int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
+                return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
             }
             else
             {
