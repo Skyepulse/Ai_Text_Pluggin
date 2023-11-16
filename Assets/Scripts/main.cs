@@ -11,6 +11,7 @@ public class main : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        /*
         string name = "George";
         string BaseMainTreat = "A grumpy old man that likes to talk about the good old days";
         string Relationship = "your grandson";
@@ -35,6 +36,6 @@ public class main : MonoBehaviour
             });
         });
 
-
+        */
     }
 }

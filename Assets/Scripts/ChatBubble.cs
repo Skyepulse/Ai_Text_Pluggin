@@ -12,18 +12,39 @@ public class ChatBubble : MonoBehaviour
     private TextMeshProUGUI _speechBubbleText;
     [SerializeField]
     private GameObject _follower;
+    [SerializeField]
+    private GameObject[] _reflectables;
 
     private float _offsetY = 6f;
     private float _offsetX = 0.16f;
     private float _defaultScale = 0.01f;
     private Camera _camera;
+    private bool _isThinking = false;
+    private bool _endThinking = false;
+    private float _thinkingTimer = 0.2f;
+    private float _timer = 0;
+    private int _thinkingTimes = 3;
 
     private void Start()
     {
         _camera = Camera.main;
+        Hide();
+        foreach(GameObject thinker in _reflectables)
+        {
+            thinker.SetActive(false);
+        }
+        
     }
 
     //Set and Get Methods
+    public void StartThinking()
+    {
+        _isThinking = true;
+    }
+    public void EndThinking()
+    {
+        _endThinking = true;
+    }
     public void SetText(string text)
     {
         _speechBubbleText.text = text;
@@ -34,11 +55,11 @@ public class ChatBubble : MonoBehaviour
     }
     public void Show()
     {
-        this.gameObject.SetActive(true);
+        _speechBubble.gameObject.SetActive(true);
     }
     public void Hide()
     {
-        this.gameObject.SetActive(false);
+        _speechBubble.gameObject.SetActive(false);
     }
     public void setOffsetY(float f)
     {
@@ -62,5 +83,41 @@ public class ChatBubble : MonoBehaviour
         {
             this.transform.localScale = new Vector3(_defaultScale, _defaultScale, _defaultScale);
         }
+    }
+
+    private void Update()
+    {
+        if (_isThinking)
+        {
+            _timer -= Time.deltaTime;
+            if (_timer < 0)
+            {
+                _timer = _thinkingTimer;
+                //ThinkingTimes is modulo 4
+                _thinkingTimes = (_thinkingTimes + 1) % 4;
+                if(_thinkingTimes == 3)
+                {
+                    foreach(GameObject thinker in _reflectables)
+                    {
+                        thinker.SetActive(false);
+                    }
+                } else
+                {
+                    _reflectables[_thinkingTimes].SetActive(true);
+                }
+                
+            }
+            if (_endThinking)
+            {
+                _endThinking = false;
+                _isThinking = false;
+                _thinkingTimes = 3;
+                foreach (GameObject thinker in _reflectables)
+                {
+                    thinker.SetActive(false);
+                }
+                _timer = _thinkingTimer;
+            }
+        } 
     }
 }
