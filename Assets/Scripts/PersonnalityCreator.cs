@@ -7,7 +7,7 @@ public class PersonnalityCreator : MonoBehaviour
 {
     private string startPersonality = "Assume the personality of";
     private string contextPersonality = " with background the following";
-    private string startPrompt = "Answer to the following statement given by";
+    private string startPrompt = "Answer to the statement given in the user prompt made by";
 
     public List<Tuple<Timing, personnalityType,  string>> personnality = new List<Tuple<Timing, personnalityType, string>>();
     public string[] basicTreats = new string[3];
@@ -30,7 +30,7 @@ public class PersonnalityCreator : MonoBehaviour
         Reaction,
     }
 
-    public Tuple<string, int> createPrompt(Timing[] times, int numMaxContext, string playerStatement, string PlayerName, int tokennum)
+    public Tuple<string, int> createPrompt(Timing[] times, int numMaxContext, string PlayerName, int tokennum)
     {
         if (basicTreats[0] == null || basicTreats[1] == null || times.Length == 0 || numMaxContext > personnality.Count || tokennum == 0)
         {
@@ -88,8 +88,7 @@ public class PersonnalityCreator : MonoBehaviour
             fstring += personnality[i].Item3 +"; ";
         }
         fstring += startPrompt;
-        fstring += " " + PlayerName + ", " + basicTreats[2] + ": ";
-        fstring += playerStatement + ".";
+        fstring += " " + PlayerName + ", " + basicTreats[2] + ". ";
         fstring += $"Please provide a complete response in {tokennum} tokens or fewer.";
         return new Tuple<string, int>(fstring, tokennum);
     }
@@ -103,6 +102,12 @@ public class PersonnalityCreator : MonoBehaviour
 
     public void addEvent(Timing t, personnalityType p, string e){
         personnality.Add(new Tuple<Timing, personnalityType, string>(t, p, e));
+    }
+
+    public void addEventFromDiscussion(string discussion)
+    {
+        //This time it is a discussion that we had with the character that we want to add to the personnality resuming what was said, the time and the type of discussion. A bonus would be the feeling of the character.
+        //We use sentiment analysis with a python script to get the feeling of the character.
     }
     public List<int> GetNDistinctRandoms(int n, int maxExclusive)
     {

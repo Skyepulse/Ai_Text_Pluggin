@@ -52,7 +52,7 @@ public class ChatBot : MonoBehaviour
         public Usage usage { get; set; }
     }
 
-    public async Task<Tuple<string, int>> SendPromptToChatAsync(string userPrompt, int tokennum)
+    public async Task<Tuple<string, int>> SendPromptToChatAsync(string systemPrompt, string userPrompt, int tokennum)
     {
         using (var client = new HttpClient())
         {
@@ -69,6 +69,7 @@ public class ChatBot : MonoBehaviour
                 model = "gpt-3.5-turbo",
                 messages = new[]
                 {
+                    new { role = "system", content = systemPrompt },
                     new { role = "user", content = userPrompt }
                 },
                 temperature = 0.7,
@@ -150,7 +151,8 @@ public class ChatBot : MonoBehaviour
         //called when pressing space
         if (Input.GetKeyDown(KeyCode.Space) && !_isWaitingForResponse)
         {
-            StartCoroutine(sendPromptGeorge(0f));
+            string userPrompt = "Hello grandpa, I have a question, what do you think about the future of our AI generation?";
+            StartCoroutine(sendPromptGeorge(0f, userPrompt));
         }
     }
 
@@ -174,33 +176,56 @@ public class ChatBot : MonoBehaviour
         }
     }
 
-    IEnumerator sendPromptGeorge(float delay)
+    IEnumerator sendPromptGeorge(float delay, string userPrompt)
     {
         yield return new WaitForSeconds(delay);
-        Debug.Log("Hello");
+        Debug.Log("Starting sending prompt to George...");
         chatBubble.StartThinking();
         string name = "George";
         string BaseMainTreat = "A grumpy old man that likes to talk about the good old days";
         string Relationship = "your grandson";
         personnalityCreator.createPersonnality(name, BaseMainTreat, Relationship);
 
-        personnalityCreator.addEvent(PersonnalityCreator.Timing.Past, PersonnalityCreator.personnalityType.Action, "You were a soldier in the war");
-        personnalityCreator.addEvent(PersonnalityCreator.Timing.Future, PersonnalityCreator.personnalityType.Opinion, "You are doubtful about the future");
+        personnalityCreator.addEvent(PersonnalityCreator.Timing.Past, PersonnalityCreator.personnalityType.Action, "You participated as a soldier in the war");
+        personnalityCreator.addEvent(PersonnalityCreator.Timing.Future, PersonnalityCreator.personnalityType.Opinion, "You are doubtful about the future of AI generation");
         personnalityCreator.addEvent(PersonnalityCreator.Timing.Present, PersonnalityCreator.personnalityType.Information, "You are a retired teacher");
 
         int tokennum = 75;
-        Tuple<string, int> prompt = personnalityCreator.createPrompt(new PersonnalityCreator.Timing[] { PersonnalityCreator.Timing.Past, PersonnalityCreator.Timing.Present, PersonnalityCreator.Timing.Future }, 3, "Hello grandpa, tell me a story!", "John", tokennum);
+        Tuple<string, int> prompt = personnalityCreator.createPrompt(new PersonnalityCreator.Timing[] { PersonnalityCreator.Timing.Past, PersonnalityCreator.Timing.Present, PersonnalityCreator.Timing.Future }, 3, "John", tokennum);
 
         Task.Run(async () =>
         {
-            Tuple<string, int> response = await SendPromptToChatAsync(prompt.Item1, prompt.Item2);
-            // Enqueue the UI update to run on the main thread.
-            MainThreadDispatcher.ExecuteOnMainThread(() =>
+            try
             {
-                chatBubble.EndThinking();
-                showResponse(response.Item1);
-                Debug.Log(response.Item1);
-            });
+                var timeout = TimeSpan.FromSeconds(30);
+                var task = SendPromptToChatAsync(prompt.Item1, userPrompt, prompt.Item2);
+                if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
+                {
+                    Tuple<string, int> response = await task;
+                    MainThreadDispatcher.ExecuteOnMainThread(() =>
+                    {
+                        chatBubble.EndThinking();
+                        showResponse(response.Item1);
+                        Debug.Log(response.Item1);
+                    });
+                }
+                else
+                {
+                    MainThreadDispatcher.ExecuteOnMainThread(() =>
+                    {
+                        chatBubble.EndThinking();
+                        Debug.LogError("Sending prompt to George timed out.");
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                MainThreadDispatcher.ExecuteOnMainThread(() =>
+                {
+                    chatBubble.EndThinking();
+                    Debug.LogError($"Error sending prompt to George: {ex.Message}");
+                });
+            }
         });
     }
 }
