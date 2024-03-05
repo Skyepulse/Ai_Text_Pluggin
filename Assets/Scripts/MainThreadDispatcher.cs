@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+// This class is used to execute actions on the main thread from other threads.
+// This is useful when you want to update the UI from a background thread.
 public class MainThreadDispatcher : MonoBehaviour
 {
     private static readonly Queue<Action> executeOnMainThread = new Queue<Action>();
