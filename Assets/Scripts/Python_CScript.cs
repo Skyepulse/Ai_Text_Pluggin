@@ -45,14 +45,16 @@ public class Python_CScript : MonoBehaviour
 
     void Update()
     {
+        
         if (Input.GetKeyDown(KeyCode.L))
         {
-            SendMessageToClient("Hello from Unity");
+            SendDataToClient("Hello grandad how are you? I've been meaning to ask you what your role was during the second world war.", "Hello grandson. I had many friends that fell to the bullet hell of the germans. I am afraid of what AI will do to our world next, if only you understood that feeling.");
         }
         else if(Input.GetKeyDown(KeyCode.K))
         {
-            SendMessageToClient("exit");
+            SendDataToClient("Can you explain the process of photosynthesis and its importance in the ecosystem?", "Photosynthesis is the biological process by which green plants and other organisms convert light energy into chemical energy in the form of glucose. This process occurs in the chloroplasts of plant cells and involves the absorption of sunlight, carbon dioxide from the atmosphere, and water from the soil to produce glucose and oxygen as byproducts. Photosynthesis is crucial for the ecosystem as it serves as the primary source of energy for most living organisms. It releases oxygen into the atmosphere, which is essential for aerobic respiration in animals and other organisms. Additionally, photosynthesis plays a vital role in regulating the Earth's climate by removing carbon dioxide from the atmosphere, thus mitigating the greenhouse effect and global warming. Overall, photosynthesis is fundamental to sustaining life on Earth and maintaining the balance of the ecosystem.");
         }
+        
     }
 
     private void ListenForIncommingRequests()
@@ -135,6 +137,12 @@ public class Python_CScript : MonoBehaviour
         {
             Debug.Log("Socket exception: " + e);
         }
+    }
+
+    public void SendDataToClient(string question, string answer)
+    {
+        string to_send = "Question: " + question + "Your answer: " + answer;
+        SendMessageToClient(to_send);
     }
 
     private void OnApplicationQuit()
