@@ -12,6 +12,12 @@ public class ChatBubble : MonoBehaviour
     private TextMeshProUGUI _speechBubbleText;
     [SerializeField]
     private GameObject _follower;
+    //get set for the _follower
+    public GameObject Follower
+    {
+        get { return _follower; }
+        set { _follower = value; }
+    }
     [SerializeField]
     private GameObject[] _reflectables;
 

@@ -1,16 +1,20 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
-public class PersonnalityCreator : MonoBehaviour
+public class PersonnalityCreator
 {
-    private string startPersonality = "Assume the personality of";
-    private string contextPersonality = " with background the following";
-    private string startPrompt = "Answer to the statement given in the user prompt made by";
+    private const string startPersonality = "Assume the personality of";
+    private const string contextPersonality = " with background the following";
+    private const string startPrompt = "Answer to the statement given in the user prompt made by";
 
-    public List<Tuple<Timing, personnalityType,  string>> personnality = new List<Tuple<Timing, personnalityType, string>>();
-    public string[] basicTreats = new string[3];
+    //Get set for the personnality
+    public List<Tuple<Timing, personnalityType, string>> Personnality
+    {
+        get { return personnality; }
+        set { personnality = value; }
+    }   
+    private List<Tuple<Timing, personnalityType,  string>> personnality;
+    private string[] basicTreats;
 
     public enum Timing
     {
@@ -34,7 +38,6 @@ public class PersonnalityCreator : MonoBehaviour
     {
         if (basicTreats[0] == null || basicTreats[1] == null || times.Length == 0 || numMaxContext > personnality.Count || tokennum == 0)
         {
-            Debug.LogError("PersonnalityCreator: basicTreats not set");
             return null;
         }
         string fstring = "";
@@ -95,25 +98,28 @@ public class PersonnalityCreator : MonoBehaviour
 
     public void createPersonnality(string Name, string BaseMainTreat, string RelationToPlayer)
     {
+        basicTreats = new string[3];
         basicTreats[0] = Name;
         basicTreats[1] = BaseMainTreat;
         basicTreats[2] = RelationToPlayer;
     }
 
     public void addEvent(Timing t, personnalityType p, string e){
+        if(personnality == null)
+        {
+            personnality = new List<Tuple<Timing, personnalityType, string>>();
+        }
         personnality.Add(new Tuple<Timing, personnalityType, string>(t, p, e));
     }
 
     public void addEventFromDiscussion(string discussion)
     {
-        //This time it is a discussion that we had with the character that we want to add to the personnality resuming what was said, the time and the type of discussion. A bonus would be the feeling of the character.
-        //We use sentiment analysis with a python script to get the feeling of the character.
+        addEvent(Timing.Present, personnalityType.Discussion, discussion);
     }
     public List<int> GetNDistinctRandoms(int n, int maxExclusive)
     {
         if (maxExclusive < n)
         {
-            Debug.LogError("The upper limit must be at least 3 for this method to work.");
             return null;
         }
 

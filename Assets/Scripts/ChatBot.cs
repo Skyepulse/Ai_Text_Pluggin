@@ -14,8 +14,35 @@ using System.Collections;
 
 public class ChatBot : MonoBehaviour
 {
-    public ChatBubble chatBubble;
-    public PersonnalityCreator personnalityCreator;
+    //Shown in the inspector
+    [SerializeField]
+    private string BotName;
+    [SerializeField] 
+    private string YourName;
+    [SerializeField]
+    private string BaseMainTreat;
+    [SerializeField]
+    private string RelationshipToPlayer;
+
+    [System.Serializable]
+    public class Choice
+    {
+        public PersonnalityCreator.Timing Time;
+        public PersonnalityCreator.personnalityType TypeOfEvent;
+        public string ShortExplanation;
+    }
+
+    [SerializeField]
+    private List<Choice> personnality;
+
+    [SerializeField]
+    private Camera followingCamera;
+    
+    
+    private string prefabPath = "ChatBubble";
+    private GameObject chatBubblePrefab;
+    private ChatBubble chatBubbleScript;
+    private PersonnalityCreator personnalityCreator;
 
     private string OpenAIkey = "My_KEY";
     private bool _isWaitingForResponse = false;
@@ -112,6 +139,40 @@ public class ChatBot : MonoBehaviour
             Debug.LogError("API key file not found!");
         }
         timer += time_per_character;
+
+        //We instanciate a new personnality creator
+        personnalityCreator = new PersonnalityCreator();
+        personnalityCreator.createPersonnality(BotName, BaseMainTreat, RelationshipToPlayer);
+
+        //We add the events to the personnality
+        for(int i = 0; i < personnality.Count; i++)
+        {
+            personnalityCreator.addEvent(personnality[i].Time, personnality[i].TypeOfEvent, personnality[i].ShortExplanation);
+        }
+
+        //Instanciate a chat bubble from prefab as a child of the player named "ChatBubble"
+        chatBubblePrefab = Resources.Load<GameObject>(prefabPath);
+        if(chatBubblePrefab != null)
+        {
+            GameObject chatBubbleObject = Instantiate(chatBubblePrefab, this.transform.position, Quaternion.identity, this.transform);
+            chatBubbleScript = chatBubbleObject.GetComponent<ChatBubble>();
+            if(chatBubbleScript != null)
+            {
+                chatBubbleScript.Follower = this.gameObject;
+                Canvas bubbleCanvas = chatBubbleObject.GetComponentInChildren<Canvas>();
+                bubbleCanvas.worldCamera = followingCamera;
+            }
+            else
+            {
+                Debug.LogError("ChatBubble script not found!");
+            }
+        }
+        else
+        {
+            Debug.LogError("ChatBubble prefab not found!");
+        }
+
+        Python_CScript.instance.chatBots.Add(BotName, this);
     }
 
     private void Update()
@@ -132,7 +193,7 @@ public class ChatBot : MonoBehaviour
                     string remaining = response.Substring(characterCount);
                     responseToDisplay = "";
                     characterCount = 0;
-                    chatBubble.Hide();
+                    chatBubbleScript.Hide();
                     if (remaining != "") showResponse(remaining);
                 }
             } else
@@ -142,23 +203,16 @@ public class ChatBot : MonoBehaviour
                 {
                     timer += time_per_character;
                     characterCount++;
-                    chatBubble.SetText(responseToDisplay.Substring(0, characterCount));
+                    chatBubbleScript.SetText(responseToDisplay.Substring(0, characterCount));
                 }
                 if (characterCount == responseToDisplay.Length) timer = time_whole_message;
             }
-        }
-
-        //called when pressing space
-        if (Input.GetKeyDown(KeyCode.Space) && !_isWaitingForResponse)
-        {
-            string userPrompt = "Hello grandpa, I have a question, what do you think about the future of our AI generation?";
-            StartCoroutine(sendPromptGeorge(0f, userPrompt));
         }
     }
 
     private void showResponse(string response)
     {
-        chatBubble.Show();
+        chatBubbleScript.Show();
         timer = time_per_character;
         this.response = response;
         int numCharacters = response.Length;
@@ -176,22 +230,26 @@ public class ChatBot : MonoBehaviour
         }
     }
 
-    IEnumerator sendPromptGeorge(float delay, string userPrompt)
+    public void sendUserPrompt(string userPrompt)
+    {
+        StartCoroutine(sendPrompt(0.0f, userPrompt));
+    }
+
+    public void addDiscussionEvent(string discussion)
+    {
+        Debug.Log("Before adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
+        personnalityCreator.addEventFromDiscussion(discussion);
+        Debug.Log("After adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
+    }
+
+    IEnumerator sendPrompt(float delay, string userPrompt)
     {
         yield return new WaitForSeconds(delay);
-        Debug.Log("Starting sending prompt to George...");
-        chatBubble.StartThinking();
-        string name = "George";
-        string BaseMainTreat = "A grumpy old man that likes to talk about the good old days";
-        string Relationship = "your grandson";
-        personnalityCreator.createPersonnality(name, BaseMainTreat, Relationship);
-
-        personnalityCreator.addEvent(PersonnalityCreator.Timing.Past, PersonnalityCreator.personnalityType.Action, "You participated as a soldier in the war");
-        personnalityCreator.addEvent(PersonnalityCreator.Timing.Future, PersonnalityCreator.personnalityType.Opinion, "You are doubtful about the future of AI generation");
-        personnalityCreator.addEvent(PersonnalityCreator.Timing.Present, PersonnalityCreator.personnalityType.Information, "You are a retired teacher");
+        chatBubbleScript.StartThinking();
+        
 
         int tokennum = 75;
-        Tuple<string, int> prompt = personnalityCreator.createPrompt(new PersonnalityCreator.Timing[] { PersonnalityCreator.Timing.Past, PersonnalityCreator.Timing.Present, PersonnalityCreator.Timing.Future }, 3, "John", tokennum);
+        Tuple<string, int> prompt = personnalityCreator.createPrompt(new PersonnalityCreator.Timing[] { PersonnalityCreator.Timing.Past, PersonnalityCreator.Timing.Present, PersonnalityCreator.Timing.Future }, 3, YourName, tokennum);
 
         Task.Run(async () =>
         {
@@ -204,17 +262,17 @@ public class ChatBot : MonoBehaviour
                     Tuple<string, int> response = await task;
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
-                        chatBubble.EndThinking();
+                        chatBubbleScript.EndThinking();
                         showResponse(response.Item1);
-                        Debug.Log(response.Item1);
+                        Python_CScript.instance.SendDataToClient(userPrompt, response.Item1, BotName);
                     });
                 }
                 else
                 {
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
-                        chatBubble.EndThinking();
-                        Debug.LogError("Sending prompt to George timed out.");
+                        chatBubbleScript.EndThinking();
+                        Debug.LogError("Sending prompt timed out for " + BotName);
                     });
                 }
             }
@@ -222,8 +280,8 @@ public class ChatBot : MonoBehaviour
             {
                 MainThreadDispatcher.ExecuteOnMainThread(() =>
                 {
-                    chatBubble.EndThinking();
-                    Debug.LogError($"Error sending prompt to George: {ex.Message}");
+                    chatBubbleScript.EndThinking();
+                    Debug.LogError("Error sending prompt to " + BotName +$": {ex.Message}");
                 });
             }
         });
