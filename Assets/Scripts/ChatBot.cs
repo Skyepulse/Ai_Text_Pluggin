@@ -12,17 +12,37 @@ using System;
 using UnityEngine.Experimental.Rendering;
 using System.Collections;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class ChatBot : MonoBehaviour
 {
     //Shown in the inspector
     public enum AiType
     {
         GPT3_5_turbo,
-        Mistral
+        Mistral,
+        Mistral_Local_LLM
     }
 
     [SerializeField]
     private AiType AiApiChoice;
+    public AiType ApiChoice
+    {
+        get
+        {
+            return AiApiChoice;
+        }
+        set
+        {
+            AiApiChoice = value;
+        }
+    }
+
+    [SerializeField]
+    private int PORT = 1234;
+    
 
     [SerializeField]
     private string BotName;
@@ -172,6 +192,52 @@ public class ChatBot : MonoBehaviour
                 {
                     OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
                     string messageContent = apiResponse.choices[0].message.content.Trim();
+                    Debug.Log("Mistral response: " + messageContent);                    
+                    int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
+                    _isWaitingForResponse = false;
+                    return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
+                }
+                else
+                {
+                    _isWaitingForResponse = false;
+                    throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
+                }
+            }
+        }
+        else if(AiApiChoice == AiType.Mistral_Local_LLM)
+        {
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new System.Uri("http://localhost:" + PORT.ToString());
+                // Set headers for the authorization token
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Construct the payload using the chat-based approach for Mistral chat completion
+                var payload = new
+                {
+                    messages = new[]
+                    {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userPrompt }
+
+                },
+                    temperature = 0.7,
+                    max_tokens = tokennum
+                };
+                var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+
+                // Make the API call
+                _isWaitingForResponse = true;
+                HttpResponseMessage response = await client.PostAsync("/v1/chat/completions", jsonPayload);
+
+                // Read the response and return the result
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
+                    string messageContent = apiResponse.choices[0].message.content.Trim();
+                    Debug.Log("Mistral local LLM response: " + messageContent);
                     int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
                     _isWaitingForResponse = false;
                     return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
@@ -336,6 +402,10 @@ public class ChatBot : MonoBehaviour
                     Tuple<string, int> response = await task;
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
+                        if(AiApiChoice == AiType.Mistral || AiApiChoice == AiType.Mistral_Local_LLM)
+                        {
+                            response = Tuple.Create(cutMessage(response.Item1), response.Item2);
+                        }
                         chatBubbleScript.EndThinking();
                         showResponse(response.Item1);
                         Python_CScript.instance.SendDataToClient(userPrompt, response.Item1, BotName);
@@ -360,4 +430,79 @@ public class ChatBot : MonoBehaviour
             }
         });
     }
+
+    //Some API chatbots do not properly finish their sentences with token limits, so we need to cut the message to the last ponctuation
+    string cutMessage(string message)
+    {
+        List<string> ponctuation = new List<string>{ ".", "!", "?", ";" }; //We consider these as ponctuation
+        int lastPonctuation = -1;
+        for(int i = message.Length - 1; i >= 0; i--)
+        {
+            if (ponctuation.Contains(message[i].ToString()))
+            {
+                lastPonctuation = i;
+                break;
+            }
+        }
+        if(lastPonctuation == -1)
+        {
+            return message;
+        }
+        else
+        {
+            return message.Substring(0, lastPonctuation + 1);
+        }
+    }
 }
+
+#if UNITY_EDITOR
+[CustomEditor(typeof(ChatBot))]
+public class ChatBotEditor : Editor
+{
+    SerializedProperty AiApiChoiceProp;
+    SerializedProperty portProp;
+    SerializedProperty botNameProp;
+    SerializedProperty yourNameProp;
+    SerializedProperty baseMainTreatProp;
+    SerializedProperty relationshipToPlayerProp;
+    SerializedProperty personnalityProp;
+    SerializedProperty followingCameraProp;
+
+    private void OnEnable()
+    {
+        // Find properties
+        AiApiChoiceProp = serializedObject.FindProperty("AiApiChoice");
+        portProp = serializedObject.FindProperty("PORT");
+        botNameProp = serializedObject.FindProperty("BotName");
+        yourNameProp = serializedObject.FindProperty("YourName");
+        baseMainTreatProp = serializedObject.FindProperty("BaseMainTreat");
+        relationshipToPlayerProp = serializedObject.FindProperty("RelationshipToPlayer");
+        personnalityProp = serializedObject.FindProperty("personnality");
+        followingCameraProp = serializedObject.FindProperty("followingCamera");
+    }
+
+    public override void OnInspectorGUI()
+    {
+        serializedObject.Update(); // Prepare object for modifications
+
+        // Manually render each property
+        EditorGUILayout.PropertyField(AiApiChoiceProp, new GUIContent("AI API Choice"));
+
+        // Conditionally display PORT based on AiApiChoice
+        if (AiApiChoiceProp.enumValueIndex == (int)ChatBot.AiType.Mistral_Local_LLM)
+        {
+            EditorGUILayout.PropertyField(portProp, new GUIContent("PORT"));
+        }
+
+        // Display other fields
+        EditorGUILayout.PropertyField(botNameProp, new GUIContent("Bot Name"));
+        EditorGUILayout.PropertyField(yourNameProp, new GUIContent("Your Name"));
+        EditorGUILayout.PropertyField(baseMainTreatProp, new GUIContent("Base Main Treat"));
+        EditorGUILayout.PropertyField(relationshipToPlayerProp, new GUIContent("Relationship To Player"));
+        EditorGUILayout.PropertyField(personnalityProp, new GUIContent("Personality Choices"));
+        EditorGUILayout.PropertyField(followingCameraProp, new GUIContent("Following Camera"));
+
+        serializedObject.ApplyModifiedProperties(); // Apply changes to the serialized object
+    }
+}
+#endif

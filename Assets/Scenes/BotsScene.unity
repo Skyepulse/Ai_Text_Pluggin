@@ -311,8 +311,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   AiApiChoice: 1
+  PORT: 1234
   BotName: George
-  YourName: John
+  YourName: Johnny
   BaseMainTreat: An old grumpy man.
   RelationshipToPlayer: Your Grandson
   personnality:
