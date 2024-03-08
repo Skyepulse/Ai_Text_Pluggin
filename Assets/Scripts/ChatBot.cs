@@ -15,6 +15,15 @@ using System.Collections;
 public class ChatBot : MonoBehaviour
 {
     //Shown in the inspector
+    public enum AiType
+    {
+        GPT3_5_turbo,
+        Mistral
+    }
+
+    [SerializeField]
+    private AiType AiApiChoice;
+
     [SerializeField]
     private string BotName;
     [SerializeField] 
@@ -24,6 +33,7 @@ public class ChatBot : MonoBehaviour
     [SerializeField]
     private string RelationshipToPlayer;
 
+    
     [System.Serializable]
     public class Choice
     {
@@ -44,7 +54,7 @@ public class ChatBot : MonoBehaviour
     private ChatBubble chatBubbleScript;
     private PersonnalityCreator personnalityCreator;
 
-    private string OpenAIkey = "My_KEY";
+    private string key = "My_KEY";
     private bool _isWaitingForResponse = false;
 
     private float time_per_character = 0.05f;
@@ -81,58 +91,122 @@ public class ChatBot : MonoBehaviour
 
     public async Task<Tuple<string, int>> SendPromptToChatAsync(string systemPrompt, string userPrompt, int tokennum)
     {
-        using (var client = new HttpClient())
+        if(AiApiChoice == AiType.GPT3_5_turbo)
         {
-            client.BaseAddress = new System.Uri("https://api.openai.com/");
-
-            // Set headers for the authorization token
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OpenAIkey);
-
-            // Construct the payload using the chat-based approach for gpt-3.5-turbo
-            var payload = new
+            using (var client = new HttpClient())
             {
-                model = "gpt-3.5-turbo",
-                messages = new[]
+                client.BaseAddress = new System.Uri("https://api.openai.com/");
+
+                // Set headers for the authorization token
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+
+                // Construct the payload using the chat-based approach for gpt-3.5-turbo
+                var payload = new
                 {
+                    model = "gpt-3.5-turbo",
+                    messages = new[]
+                    {
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = userPrompt }
                 },
-                temperature = 0.7,
-                max_tokens = tokennum
-            };
-            var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+                    temperature = 0.7,
+                    max_tokens = tokennum
+                };
+                var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
 
-            // Make the API call
-            _isWaitingForResponse = true;
-            HttpResponseMessage response = await client.PostAsync("v1/chat/completions", jsonPayload);
+                // Make the API call
+                _isWaitingForResponse = true;
+                HttpResponseMessage response = await client.PostAsync("v1/chat/completions", jsonPayload);
 
-            // Read the response and return the result
-            string jsonResponse = await response.Content.ReadAsStringAsync();   
-            if (response.IsSuccessStatusCode)
-            {
-                OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
-                string messageContent = apiResponse.choices[0].message.content.Trim();
-                int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
-                _isWaitingForResponse = false;
-                return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
+                // Read the response and return the result
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
+                    string messageContent = apiResponse.choices[0].message.content.Trim();
+                    int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
+                    _isWaitingForResponse = false;
+                    return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
+                }
+                else
+                {
+                    _isWaitingForResponse = false;
+                    throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
+                }
             }
-            else
+        } else if(AiApiChoice == AiType.Mistral)
+        {
+            //Mistral does not have a role system, so we group the two prompts together for the user prompt
+            string mistralPrompt = "sys_prompt: " + systemPrompt + " prompt: " + userPrompt;
+            using(var client = new HttpClient())
             {
-                _isWaitingForResponse = false;
-                throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
+                client.BaseAddress = new System.Uri("https://api.mistral.ai/");
+
+                // Set headers for the authorization token
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+
+                // Construct the payload using the chat-based approach for Mistral chat completion
+                var payload = new
+                {
+                    model = "mistral-large-latest",
+                    messages = new[]
+                    {
+                    new { role = "user", content = mistralPrompt }
+                },
+                    temperature = 0.7,
+                    max_tokens = tokennum
+                };
+                var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+
+                // Make the API call
+                _isWaitingForResponse = true;
+                HttpResponseMessage response = await client.PostAsync("/v1/chat/completions", jsonPayload);
+
+                // Read the response and return the result
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
+                    string messageContent = apiResponse.choices[0].message.content.Trim();
+                    int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
+                    _isWaitingForResponse = false;
+                    return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
+                }
+                else
+                {
+                    _isWaitingForResponse = false;
+                    throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
+                }
             }
         }
+        else
+        {
+            throw new Exception("No AI API selected");
+        }   
     }
 
   
     private void Start()
     {
-        string path = Application.dataPath + "/../apikey.txt";
+        string path;
+        if(AiApiChoice == AiType.GPT3_5_turbo)
+        {
+            path = Application.dataPath + "/../apikey.txt";
+        }
+        else if(AiApiChoice == AiType.Mistral)
+        {
+            path = Application.dataPath + "/../apikey2.txt";
+        } else
+        {
+            path = Application.dataPath + "/../apikey.txt";
+        }
         if(File.Exists(path))
         {
-            OpenAIkey = File.ReadAllText(path);
+            key = File.ReadAllText(path);
         }
         else
         {
