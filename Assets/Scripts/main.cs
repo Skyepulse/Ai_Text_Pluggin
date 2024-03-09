@@ -16,6 +16,18 @@ public class main : MonoBehaviour
             ChatBot chatBot = george.GetComponent<ChatBot>();
             chatBot.sendUserPrompt("Hello grandad how are you? I've been meaning to ask you what your role was during the second world war. What do you think of AI nowadays?");
         }
+
+        if(Input.GetKeyDown(KeyCode.E))
+        {
+            ChatBot chatBot = george.GetComponent<ChatBot>();
+            chatBot.startRecording();
+        }
+
+        if(Input.GetKeyUp(KeyCode.E))
+        {
+            ChatBot chatBot = george.GetComponent<ChatBot>();
+            chatBot.stopRecordingAndSend();
+        }
     }
 
 }

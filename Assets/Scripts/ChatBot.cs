@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.IO;
 using System;
 using System.Collections;
+using Unity.VisualScripting;
+
 
 
 #if UNITY_EDITOR
@@ -27,6 +29,10 @@ public class ChatBot : MonoBehaviour
     {
         openAI_tts,
         elevenLabs_tts
+    }
+    public enum speechToTextType
+    {
+        openAi_Whisper
     }
 
     [SerializeField]
@@ -51,7 +57,22 @@ public class ChatBot : MonoBehaviour
     [SerializeField]
     private textToSpeechType textToSpeechChoice;
     [SerializeField]
+    private bool speechToText;
+    [SerializeField] private speechToTextType speechToTextChoice;
+    [SerializeField]
     private string VoiceId;
+
+    public enum openAiVoiceType
+    {
+        alloy,
+        echo,
+        fable,
+        onyx,
+        nova,
+        shimmer
+    }
+    [SerializeField]
+    private openAiVoiceType openAiVoice;
 
 
 
@@ -84,6 +105,8 @@ public class ChatBot : MonoBehaviour
     private GameObject chatBubblePrefab;
     private ChatBubble chatBubbleScript;
     private PersonnalityCreator personnalityCreator;
+    private VoiceRecorder voiceRecorder;
+    private string saveFileName;
 
     private string OpenAikey = "My_KEY";
     private string mistralKey = "My_KEY";
@@ -124,7 +147,7 @@ public class ChatBot : MonoBehaviour
         public Usage usage { get; set; }
     }
 
-    public async Task<Tuple<string, int>> SendPromptToChatAsync(string systemPrompt, string userPrompt, int tokennum)
+    private async Task<Tuple<string, int>> SendPromptToChatAsync(string systemPrompt, string userPrompt, int tokennum)
     {
         if(AiApiChoice == AiType.GPT3_5_turbo)
         {
@@ -207,7 +230,7 @@ public class ChatBot : MonoBehaviour
                 {
                     OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
                     string messageContent = apiResponse.choices[0].message.content.Trim();
-                    Debug.Log("Mistral response: " + messageContent);                    
+                    //Debug.Log("Mistral response: " + messageContent);                    
                     int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
                     _isWaitingForResponse = false;
                     return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
@@ -252,7 +275,7 @@ public class ChatBot : MonoBehaviour
                 {
                     OpenAIResponse apiResponse = JsonConvert.DeserializeObject<OpenAIResponse>(jsonResponse);
                     string messageContent = apiResponse.choices[0].message.content.Trim();
-                    Debug.Log("Mistral local LLM response: " + messageContent);
+                    //Debug.Log("Mistral local LLM response: " + messageContent);
                     int tokensUsed = apiResponse.usage.completion_tokens; // Get the token count
                     _isWaitingForResponse = false;
                     return Tuple.Create(messageContent, tokensUsed); // returning the assistant's message content
@@ -282,11 +305,35 @@ public class ChatBot : MonoBehaviour
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OpenAikey);
-
+                string voiceT;
+                switch(openAiVoice)
+                {
+                    case openAiVoiceType.alloy:
+                        voiceT = "alloy";
+                        break;
+                    case openAiVoiceType.echo:
+                        voiceT = "echo";
+                        break;
+                    case openAiVoiceType.fable:
+                        voiceT = "fable";
+                        break;
+                    case openAiVoiceType.onyx:
+                        voiceT = "onyx";
+                        break;
+                    case openAiVoiceType.nova:
+                        voiceT = "nova";
+                        break;
+                    case openAiVoiceType.shimmer:
+                        voiceT = "shimmer";
+                        break;
+                    default:
+                        voiceT = "alloy";
+                        break;
+                }
                 var payload = new
                 {
                     model = "tts-1",
-                    voice = "onyx",
+                    voice = voiceT,
                     input = message,
                     response_format = "pcm",
                     speed = 1.0
@@ -336,7 +383,7 @@ public class ChatBot : MonoBehaviour
                 HttpResponseMessage response = await client.PostAsync(url, jsonPayload);
                 MainThreadDispatcher.ExecuteOnMainThread(() =>
                 {
-                    Debug.Log("Response: " + response);
+                    //Debug.Log("Response: " + response);
                 });
                 var audioBytes = await response.Content.ReadAsByteArrayAsync();
                 if (response.IsSuccessStatusCode)
@@ -384,7 +431,7 @@ public class ChatBot : MonoBehaviour
         }
         else
         {
-            Debug.LogError("API key file not found for OpenAi!");
+            //Debug.LogError("API key file not found for OpenAi!");
         }
 
         string path2 = UnityEngine.Application.dataPath + "/../apikey2.txt";
@@ -394,7 +441,7 @@ public class ChatBot : MonoBehaviour
         }
         else
         {
-            Debug.LogError("API key file not found for Mistral!");
+            //Debug.LogError("API key file not found for Mistral!");
         }
 
         string path3 = UnityEngine.Application.dataPath + "/../apikey3.txt";
@@ -404,7 +451,7 @@ public class ChatBot : MonoBehaviour
         }
         else
         {
-            Debug.LogError("API key file not found for ElevenLabs!");
+            //Debug.LogError("API key file not found for ElevenLabs!");
         }
         timer += time_per_character;
 
@@ -414,6 +461,11 @@ public class ChatBot : MonoBehaviour
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
+
+        //Voice recorder
+        voiceRecorder = gameObject.AddComponent<VoiceRecorder>();
+        voiceRecorder.Filename = this.gameObject.GetInstanceID().ToString() + BotName;
+        saveFileName = voiceRecorder.Filename;
 
         //We instanciate a new personnality creator
         personnalityCreator = new PersonnalityCreator();
@@ -439,12 +491,12 @@ public class ChatBot : MonoBehaviour
             }
             else
             {
-                Debug.LogError("ChatBubble script not found!");
+                //Debug.LogError("ChatBubble script not found!");
             }
         }
         else
         {
-            Debug.LogError("ChatBubble prefab not found!");
+            //Debug.LogError("ChatBubble prefab not found!");
         }
 
         Python_CScript.instance.chatBots.Add(BotName, this);
@@ -483,11 +535,6 @@ public class ChatBot : MonoBehaviour
                 if (characterCount == responseToDisplay.Length) timer = time_whole_message;
             }
         }
-
-        if(Input.GetKeyDown(KeyCode.Z))
-        {
-            PlaySpeech();
-        }
     }
 
     private void showResponse(string response)
@@ -517,9 +564,9 @@ public class ChatBot : MonoBehaviour
 
     public void addDiscussionEvent(string discussion)
     {
-        Debug.Log("Before adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
+        //Debug.Log("Before adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
         personnalityCreator.addEventFromDiscussion(discussion);
-        Debug.Log("After adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
+        //Debug.Log("After adding length of list is: " + personnalityCreator.Personnality.Count.ToString());
     }
 
     IEnumerator sendPrompt(float delay, string userPrompt)
@@ -548,7 +595,7 @@ public class ChatBot : MonoBehaviour
                         }
                         if (textToSpeech)
                         {
-                            Debug.Log("Generating speech for " + BotName);
+                            //Debug.Log("Generating speech for " + BotName);
                             Task.Run(async () =>
                             {
                                 try
@@ -560,9 +607,9 @@ public class ChatBot : MonoBehaviour
                                         byte[] audioClipbytes = await speechTask;
                                         MainThreadDispatcher.ExecuteOnMainThread(() =>
                                         {
-                                            Debug.Log("Generated speech for " + BotName + ". Transforming to audioclip...");
+                                            //Debug.Log("Generated speech for " + BotName + ". Transforming to audioclip...");
                                             AudioClip audioClip = bytesToWav(audioClipbytes);
-                                            Debug.Log("Generated speech for " + BotName + ". Playing if press z...");
+                                            //Debug.Log("Generated speech for " + BotName + ". Playing if press z...");
                                             audioSource.clip = audioClip;
                                             PlaySpeech();
                                             chatBubbleScript.EndThinking();
@@ -575,7 +622,7 @@ public class ChatBot : MonoBehaviour
                                         MainThreadDispatcher.ExecuteOnMainThread(() =>
                                         {
                                             chatBubbleScript.EndThinking();
-                                            Debug.LogError("Generating speech timed out for " + BotName);
+                                            //Debug.LogError("Generating speech timed out for " + BotName);
                                         });
                                     }
                                 }
@@ -601,7 +648,7 @@ public class ChatBot : MonoBehaviour
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
                         chatBubbleScript.EndThinking();
-                        Debug.LogError("Sending prompt timed out for " + BotName);
+                        //Debug.LogError("Sending prompt timed out for " + BotName);
                     });
                 }
             }
@@ -623,7 +670,7 @@ public class ChatBot : MonoBehaviour
             audioSource.Play();
         } else
         {
-            Debug.LogError("No audio clip to play!");
+            //Debug.LogError("No audio clip to play!");
         }
     }
 
@@ -649,6 +696,111 @@ public class ChatBot : MonoBehaviour
             return message.Substring(0, lastPonctuation + 1);
         }
     }
+
+    public void startRecording()
+    {
+        if(speechToText)
+            voiceRecorder.StartRecording();
+        else
+            Debug.LogError("No speech to text API selected! Please select one to use speech to text.");
+    }
+
+    public void stopRecordingAndSend()
+    {
+        if (speechToText)
+        {
+            Debug.Log("Should stop recording and send...");
+            bool success = voiceRecorder.StopRecordingAndSave();
+            if (success)
+                StartCoroutine(sendSpeechToTextPrompt(0.0f));
+            else
+                Debug.LogError("Error stopping recording and saving!");
+        } else
+        {
+            return;
+        }
+    }
+
+    private async Task<string> sendPromptSpeechToText(string filename)
+    {
+        filename += ".wav";
+        MainThreadDispatcher.ExecuteOnMainThread(() =>
+        {
+            Debug.Log("Sending speech to text prompt...");
+        });
+        if(speechToTextChoice == speechToTextType.openAi_Whisper)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                client.BaseAddress = new System.Uri("https://api.openai.com/");
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OpenAikey);
+
+                using(var content = new MultipartFormDataContent())
+                {
+                    var fileContent = new ByteArrayContent(File.ReadAllBytes(voiceRecorder.SaveFilePath + filename));
+                    fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("audio/wav");
+                    content.Add(fileContent, "file", filename);
+
+                    content.Add(new StringContent("whisper-1"), "model");
+
+                    HttpResponseMessage response = await client.PostAsync("v1/audio/transcriptions", content);
+                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseObject = Newtonsoft.Json.Linq.JObject.Parse(jsonResponse);
+                        string messageContent = responseObject["text"].ToString();
+                        return messageContent;
+                    } else
+                    {
+                        throw new Exception("Failed to retrieve data. Status code: " + response.StatusCode);
+                    }
+                    
+                }
+            }
+        } else 
+        {
+            
+            throw new Exception("No correct speechToText API selected!");
+        }
+    }
+
+    IEnumerator sendSpeechToTextPrompt(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        Debug.Log("Should start sending thread...");
+        Task.Run(async () =>
+        {
+            //We know the file is saved, we now send it as a prompt to the chatbot
+            try
+            {
+                var timeout = TimeSpan.FromSeconds(30);
+                var task = sendPromptSpeechToText(saveFileName);
+                if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
+                {
+                    string response = await task;
+                    MainThreadDispatcher.ExecuteOnMainThread(() =>
+                    {
+                        sendUserPrompt(response);
+                    });
+                }
+                else
+                {
+                    MainThreadDispatcher.ExecuteOnMainThread(() =>
+                    {
+                        Debug.LogError("Sending speech to text prompt timed out for " + BotName);
+                    });
+                }
+
+            } catch (Exception ex)
+            {
+                MainThreadDispatcher.ExecuteOnMainThread(() =>
+                {
+                    Debug.LogError("Error sending speech to text prompt: " + ex.Message);
+                });
+            }
+        });
+    }
 }
 
 #if UNITY_EDITOR
@@ -660,6 +812,9 @@ public class ChatBotEditor : Editor
     SerializedProperty textToSpeech;
     SerializedProperty textToSpeechType;
     SerializedProperty voiceId;
+    SerializedProperty openAiVoiceType;
+    SerializedProperty speechToText;
+    SerializedProperty speechToTextType;
     SerializedProperty botNameProp;
     SerializedProperty yourNameProp;
     SerializedProperty baseMainTreatProp;
@@ -675,6 +830,9 @@ public class ChatBotEditor : Editor
         textToSpeech = serializedObject.FindProperty("textToSpeech");
         textToSpeechType = serializedObject.FindProperty("textToSpeechChoice");
         voiceId = serializedObject.FindProperty("VoiceId");
+        openAiVoiceType = serializedObject.FindProperty("openAiVoice");
+        speechToText = serializedObject.FindProperty("speechToText");
+        speechToTextType = serializedObject.FindProperty("speechToTextChoice");
         botNameProp = serializedObject.FindProperty("BotName");
         yourNameProp = serializedObject.FindProperty("YourName");
         baseMainTreatProp = serializedObject.FindProperty("BaseMainTreat");
@@ -702,7 +860,15 @@ public class ChatBotEditor : Editor
             if(textToSpeechType.enumValueIndex == (int)ChatBot.textToSpeechType.elevenLabs_tts)
             {
                 EditorGUILayout.PropertyField(voiceId, new GUIContent("Voice Id"));
+            } else if(textToSpeechType.enumValueIndex == (int)ChatBot.textToSpeechType.openAI_tts)
+            {
+                EditorGUILayout.PropertyField(openAiVoiceType, new GUIContent("OpenAI Voice"));
             }
+        }
+        EditorGUILayout.PropertyField(speechToText, new GUIContent("Speech To Text"));
+        if (speechToText.boolValue)
+        {
+            EditorGUILayout.PropertyField(speechToTextType, new GUIContent("Speech To Text Choice"));
         }
 
         // Display other fields

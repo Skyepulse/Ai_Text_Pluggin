@@ -313,8 +313,9 @@ MonoBehaviour:
   AiApiChoice: 0
   PORT: 1234
   textToSpeech: 1
-  textToSpeechChoice: 1
+  textToSpeechChoice: 0
   VoiceId: 54mvSiECXMNzQzq7J9Nb
+  openAiVoice: 0
   BotName: George
   YourName: Johnny
   BaseMainTreat: An old grumpy man.
@@ -454,6 +455,7 @@ GameObject:
   - component: {fileID: 1704217909}
   - component: {fileID: 1704217910}
   - component: {fileID: 1704217911}
+  - component: {fileID: 1704217912}
   m_Layer: 0
   m_Name: Floor
   m_TagString: Untagged
@@ -616,6 +618,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d03dbf3a3c7cd964da61f3451a535aa9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1704217912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1704217903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3318873ac3bf8264e8d7848d2fd03fa7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  saveFilePath: C:/Users/Elmrys/Unity Projects/Ai_game/Assets/Resources/Audio/
 --- !u!1 &1737352844
 GameObject:
   m_ObjectHideFlags: 0
