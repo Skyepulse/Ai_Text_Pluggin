@@ -4,13 +4,11 @@ using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text;
 using Newtonsoft.Json;
-using UnityEngine.UI;
 using System.Collections.Generic;
-using TMPro;
 using System.IO;
 using System;
-using UnityEngine.Experimental.Rendering;
 using System.Collections;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -24,6 +22,11 @@ public class ChatBot : MonoBehaviour
         GPT3_5_turbo,
         Mistral,
         Mistral_Local_LLM
+    }
+    public enum textToSpeechType
+    {
+        openAI_tts,
+        elevenLabs_tts
     }
 
     [SerializeField]
@@ -42,7 +45,15 @@ public class ChatBot : MonoBehaviour
 
     [SerializeField]
     private int PORT = 1234;
-    
+
+    [SerializeField]
+    private bool textToSpeech;
+    [SerializeField]
+    private textToSpeechType textToSpeechChoice;
+    [SerializeField]
+    private string VoiceId;
+
+
 
     [SerializeField]
     private string BotName;
@@ -74,7 +85,9 @@ public class ChatBot : MonoBehaviour
     private ChatBubble chatBubbleScript;
     private PersonnalityCreator personnalityCreator;
 
-    private string key = "My_KEY";
+    private string OpenAikey = "My_KEY";
+    private string mistralKey = "My_KEY";
+    private string elevenLabsKey = "My_KEY";
     private bool _isWaitingForResponse = false;
 
     private float time_per_character = 0.05f;
@@ -84,6 +97,8 @@ public class ChatBot : MonoBehaviour
     private int characterCount = 0;
     private string response = "";
     private string responseToDisplay = "";
+
+    private AudioSource audioSource;
 
     public class OpenAIResponse
     {
@@ -120,7 +135,7 @@ public class ChatBot : MonoBehaviour
                 // Set headers for the authorization token
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OpenAikey);
 
                 // Construct the payload using the chat-based approach for gpt-3.5-turbo
                 var payload = new
@@ -167,7 +182,7 @@ public class ChatBot : MonoBehaviour
                 // Set headers for the authorization token
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", mistralKey);
 
                 // Construct the payload using the chat-based approach for Mistral chat completion
                 var payload = new
@@ -255,30 +270,150 @@ public class ChatBot : MonoBehaviour
         }   
     }
 
-  
-    private void Start()
+    public async Task<byte[]> GenerateSpeech(string message)
     {
-        string path;
-        if(AiApiChoice == AiType.GPT3_5_turbo)
+        if(textToSpeechChoice == textToSpeechType.openAI_tts)
         {
-            path = Application.dataPath + "/../apikey.txt";
-        }
-        else if(AiApiChoice == AiType.Mistral)
+            using (HttpClient client = new HttpClient())
+            {
+                client.BaseAddress = new System.Uri("https://api.openai.com/");
+
+                // Set headers for the authorization token
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OpenAikey);
+
+                var payload = new
+                {
+                    model = "tts-1",
+                    voice = "onyx",
+                    input = message,
+                    response_format = "pcm",
+                    speed = 1.0
+                };
+                var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+
+                HttpResponseMessage response = await client.PostAsync("v1/audio/speech", jsonPayload);
+                var audioBytes = await response.Content.ReadAsByteArrayAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    
+                    return audioBytes;
+                }
+                else
+                {
+                    throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}.");
+                }
+            }
+        } else if(textToSpeechChoice == textToSpeechType.elevenLabs_tts)
         {
-            path = Application.dataPath + "/../apikey2.txt";
-        } else
-        {
-            path = Application.dataPath + "/../apikey.txt";
-        }
-        if(File.Exists(path))
-        {
-            key = File.ReadAllText(path);
+            if(VoiceId == "")
+            {
+                throw new Exception("No voice id selected for ElevenLabs TTS");
+            }
+            using (HttpClient client = new HttpClient())
+            {
+                client.BaseAddress = new System.Uri("https://api.elevenlabs.io/");
+
+                // Set headers for the authorization token
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Add("xi-api-key", elevenLabsKey);
+
+                var payload = new
+                {
+                    text = message,
+                    voice_settings = new
+                    {
+                        similarity_boost = 0.5,
+                        stability = 0.5
+                    }
+                };
+                var url = $"v1/text-to-speech/{VoiceId}?output_format=pcm_24000";
+
+                var jsonPayload = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
+
+                HttpResponseMessage response = await client.PostAsync(url, jsonPayload);
+                MainThreadDispatcher.ExecuteOnMainThread(() =>
+                {
+                    Debug.Log("Response: " + response);
+                });
+                var audioBytes = await response.Content.ReadAsByteArrayAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    return audioBytes;
+                }
+                else
+                {
+                    throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}.");
+                }
+            }
         }
         else
         {
-            Debug.LogError("API key file not found!");
+            throw new Exception("No textToSpeech API selected");
+        }
+    }
+
+    private static AudioClip bytesToWav(byte[] pcmBytes, int sampleRate = 24000, int channels = 1)
+    {
+        int samples = pcmBytes.Length / 2; // 2 bytes per sample for 16-bit audio
+        float[] audioData = new float[samples];
+
+        // Convert byte array to float array
+        for (int i = 0; i < samples; i++)
+        {
+            short sample = (short)((pcmBytes[i * 2 + 1] << 8) | pcmBytes[i * 2]);
+            audioData[i] = sample / 32768.0f; // Normalize the 16-bit sample to [-1.0, 1.0]
+        }
+
+        // Create AudioClip
+        AudioClip audioClip = AudioClip.Create("LoadedPCMClip", samples, channels, sampleRate, false);
+        audioClip.SetData(audioData, 0);
+
+        return audioClip;
+    }
+
+    private void Start()
+    {
+        string path1 = UnityEngine.Application.dataPath + "/../apikey.txt";
+        
+        if(File.Exists(path1))
+        {
+            OpenAikey = File.ReadAllText(path1);
+        }
+        else
+        {
+            Debug.LogError("API key file not found for OpenAi!");
+        }
+
+        string path2 = UnityEngine.Application.dataPath + "/../apikey2.txt";
+        if(File.Exists(path2))
+        {
+               mistralKey = File.ReadAllText(path2);
+        }
+        else
+        {
+            Debug.LogError("API key file not found for Mistral!");
+        }
+
+        string path3 = UnityEngine.Application.dataPath + "/../apikey3.txt";
+        if(File.Exists(path3))
+        {
+            elevenLabsKey = File.ReadAllText(path3);
+        }
+        else
+        {
+            Debug.LogError("API key file not found for ElevenLabs!");
         }
         timer += time_per_character;
+
+        //Create audio source for text to speech
+        audioSource = gameObject.GetComponent<AudioSource>();
+        if(audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
 
         //We instanciate a new personnality creator
         personnalityCreator = new PersonnalityCreator();
@@ -348,6 +483,11 @@ public class ChatBot : MonoBehaviour
                 if (characterCount == responseToDisplay.Length) timer = time_whole_message;
             }
         }
+
+        if(Input.GetKeyDown(KeyCode.Z))
+        {
+            PlaySpeech();
+        }
     }
 
     private void showResponse(string response)
@@ -402,13 +542,58 @@ public class ChatBot : MonoBehaviour
                     Tuple<string, int> response = await task;
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
-                        if(AiApiChoice == AiType.Mistral || AiApiChoice == AiType.Mistral_Local_LLM)
+                        if (AiApiChoice == AiType.Mistral || AiApiChoice == AiType.Mistral_Local_LLM)
                         {
                             response = Tuple.Create(cutMessage(response.Item1), response.Item2);
                         }
-                        chatBubbleScript.EndThinking();
-                        showResponse(response.Item1);
-                        Python_CScript.instance.SendDataToClient(userPrompt, response.Item1, BotName);
+                        if (textToSpeech)
+                        {
+                            Debug.Log("Generating speech for " + BotName);
+                            Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var speechTimeout = TimeSpan.FromSeconds(30);
+                                    var speechTask = GenerateSpeech(response.Item1);
+                                    if (await Task.WhenAny(speechTask, Task.Delay(speechTimeout)) == speechTask)
+                                    {
+                                        byte[] audioClipbytes = await speechTask;
+                                        MainThreadDispatcher.ExecuteOnMainThread(() =>
+                                        {
+                                            Debug.Log("Generated speech for " + BotName + ". Transforming to audioclip...");
+                                            AudioClip audioClip = bytesToWav(audioClipbytes);
+                                            Debug.Log("Generated speech for " + BotName + ". Playing if press z...");
+                                            audioSource.clip = audioClip;
+                                            PlaySpeech();
+                                            chatBubbleScript.EndThinking();
+                                            showResponse(response.Item1);
+                                            Python_CScript.instance.SendDataToClient(userPrompt, response.Item1, BotName);
+                                        });
+                                    }
+                                    else
+                                    {
+                                        MainThreadDispatcher.ExecuteOnMainThread(() =>
+                                        {
+                                            chatBubbleScript.EndThinking();
+                                            Debug.LogError("Generating speech timed out for " + BotName);
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MainThreadDispatcher.ExecuteOnMainThread(() =>
+                                    {
+                                        chatBubbleScript.EndThinking();
+                                        Debug.LogError("Error generating speech: " + ex.Message);
+                                    });
+                                }
+                            });
+                        }
+                        else { 
+                            chatBubbleScript.EndThinking();
+                            showResponse(response.Item1);
+                            Python_CScript.instance.SendDataToClient(userPrompt, response.Item1, BotName);
+                        }
                     });
                 }
                 else
@@ -429,6 +614,17 @@ public class ChatBot : MonoBehaviour
                 });
             }
         });
+    }
+
+    private void PlaySpeech()
+    {
+        if(audioSource.clip != null)
+        {
+            audioSource.Play();
+        } else
+        {
+            Debug.LogError("No audio clip to play!");
+        }
     }
 
     //Some API chatbots do not properly finish their sentences with token limits, so we need to cut the message to the last ponctuation
@@ -461,6 +657,9 @@ public class ChatBotEditor : Editor
 {
     SerializedProperty AiApiChoiceProp;
     SerializedProperty portProp;
+    SerializedProperty textToSpeech;
+    SerializedProperty textToSpeechType;
+    SerializedProperty voiceId;
     SerializedProperty botNameProp;
     SerializedProperty yourNameProp;
     SerializedProperty baseMainTreatProp;
@@ -473,6 +672,9 @@ public class ChatBotEditor : Editor
         // Find properties
         AiApiChoiceProp = serializedObject.FindProperty("AiApiChoice");
         portProp = serializedObject.FindProperty("PORT");
+        textToSpeech = serializedObject.FindProperty("textToSpeech");
+        textToSpeechType = serializedObject.FindProperty("textToSpeechChoice");
+        voiceId = serializedObject.FindProperty("VoiceId");
         botNameProp = serializedObject.FindProperty("BotName");
         yourNameProp = serializedObject.FindProperty("YourName");
         baseMainTreatProp = serializedObject.FindProperty("BaseMainTreat");
@@ -492,6 +694,15 @@ public class ChatBotEditor : Editor
         if (AiApiChoiceProp.enumValueIndex == (int)ChatBot.AiType.Mistral_Local_LLM)
         {
             EditorGUILayout.PropertyField(portProp, new GUIContent("PORT"));
+        }
+        EditorGUILayout.PropertyField(textToSpeech, new GUIContent("Text To Speech"));
+        if (textToSpeech.boolValue)
+        {
+            EditorGUILayout.PropertyField(textToSpeechType, new GUIContent("Text To Speech Choice"));
+            if(textToSpeechType.enumValueIndex == (int)ChatBot.textToSpeechType.elevenLabs_tts)
+            {
+                EditorGUILayout.PropertyField(voiceId, new GUIContent("Voice Id"));
+            }
         }
 
         // Display other fields

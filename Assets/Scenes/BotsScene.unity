@@ -310,8 +310,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 991c812c908ddd24481cca529c4f5e65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  AiApiChoice: 1
+  AiApiChoice: 0
   PORT: 1234
+  textToSpeech: 1
+  textToSpeechChoice: 1
+  VoiceId: 54mvSiECXMNzQzq7J9Nb
   BotName: George
   YourName: Johnny
   BaseMainTreat: An old grumpy man.
