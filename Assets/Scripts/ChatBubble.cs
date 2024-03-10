@@ -25,6 +25,11 @@ public class ChatBubble : MonoBehaviour
     private float _offsetX = 0.16f;
     private float _defaultScale = 0.01f;
     private Camera _camera;
+    public Camera Camera
+    {
+        get { return _camera; }
+        set { _camera = value; }
+    }
     private bool _isThinking = false;
     private bool _endThinking = false;
     private float _thinkingTimer = 0.2f;
@@ -33,7 +38,6 @@ public class ChatBubble : MonoBehaviour
 
     private void Start()
     {
-        _camera = Camera.main;
         Hide();
         foreach(GameObject thinker in _reflectables)
         {

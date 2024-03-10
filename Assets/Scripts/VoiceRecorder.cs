@@ -23,7 +23,7 @@ public class VoiceRecorder : MonoBehaviour
         set { saveFilePath = value; }
     }
     private float startRecordingTime;
-    private int defaultrecordingTime = 10;
+    private int defaultrecordingTime = 6;
     private float timer = 0;
     private float adjustVolume = 4.0f;
 

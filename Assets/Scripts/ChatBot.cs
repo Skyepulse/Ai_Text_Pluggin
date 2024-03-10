@@ -120,6 +120,8 @@ public class ChatBot : MonoBehaviour
     private int characterCount = 0;
     private string response = "";
     private string responseToDisplay = "";
+    private bool cannotBeInterrupted = false;
+    private bool cannotBeAudioInterrupted = false;
 
     private AudioSource audioSource;
 
@@ -191,6 +193,8 @@ public class ChatBot : MonoBehaviour
                 else
                 {
                     _isWaitingForResponse = false;
+                    cannotBeInterrupted = false;
+                    cannotBeAudioInterrupted = false;
                     throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
                 }
             }
@@ -237,6 +241,8 @@ public class ChatBot : MonoBehaviour
                 }
                 else
                 {
+                    cannotBeInterrupted = false;
+                    cannotBeAudioInterrupted = false;
                     _isWaitingForResponse = false;
                     throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
                 }
@@ -282,6 +288,8 @@ public class ChatBot : MonoBehaviour
                 }
                 else
                 {
+                    cannotBeInterrupted = false;
+                    cannotBeAudioInterrupted = false;
                     _isWaitingForResponse = false;
                     throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}. Response: {jsonResponse}");
                 }
@@ -289,6 +297,8 @@ public class ChatBot : MonoBehaviour
         }
         else
         {
+            cannotBeInterrupted = false;
+            cannotBeAudioInterrupted = false;
             throw new Exception("No AI API selected");
         }   
     }
@@ -349,6 +359,7 @@ public class ChatBot : MonoBehaviour
                 }
                 else
                 {
+                    cannotBeAudioInterrupted = false;
                     throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}.");
                 }
             }
@@ -392,12 +403,14 @@ public class ChatBot : MonoBehaviour
                 }
                 else
                 {
+                    cannotBeAudioInterrupted = false;
                     throw new HttpRequestException($"Failed to retrieve data. Status code: {response.StatusCode}.");
                 }
             }
         }
         else
         {
+            cannotBeAudioInterrupted = false;
             throw new Exception("No textToSpeech API selected");
         }
     }
@@ -486,6 +499,7 @@ public class ChatBot : MonoBehaviour
             if(chatBubbleScript != null)
             {
                 chatBubbleScript.Follower = this.gameObject;
+                chatBubbleScript.Camera = followingCamera;
                 Canvas bubbleCanvas = chatBubbleObject.GetComponentInChildren<Canvas>();
                 bubbleCanvas.worldCamera = followingCamera;
             }
@@ -522,6 +536,11 @@ public class ChatBot : MonoBehaviour
                     characterCount = 0;
                     chatBubbleScript.Hide();
                     if (remaining != "") showResponse(remaining);
+                    else
+                    {
+                        cannotBeInterrupted = false;
+                        cannotBeAudioInterrupted = false;
+                    }
                 }
             } else
             {
@@ -559,7 +578,10 @@ public class ChatBot : MonoBehaviour
 
     public void sendUserPrompt(string userPrompt)
     {
+        if(cannotBeInterrupted)
+            return;
         StartCoroutine(sendPrompt(0.0f, userPrompt));
+        cannotBeInterrupted = true;
     }
 
     public void addDiscussionEvent(string discussion)
@@ -622,6 +644,8 @@ public class ChatBot : MonoBehaviour
                                         MainThreadDispatcher.ExecuteOnMainThread(() =>
                                         {
                                             chatBubbleScript.EndThinking();
+                                            cannotBeInterrupted = false;
+                                            cannotBeAudioInterrupted = false;
                                             //Debug.LogError("Generating speech timed out for " + BotName);
                                         });
                                     }
@@ -631,6 +655,8 @@ public class ChatBot : MonoBehaviour
                                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                                     {
                                         chatBubbleScript.EndThinking();
+                                        cannotBeInterrupted = false;
+                                        cannotBeAudioInterrupted = false;
                                         Debug.LogError("Error generating speech: " + ex.Message);
                                     });
                                 }
@@ -648,6 +674,8 @@ public class ChatBot : MonoBehaviour
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
                         chatBubbleScript.EndThinking();
+                        cannotBeInterrupted = false;
+                        cannotBeAudioInterrupted = false;
                         //Debug.LogError("Sending prompt timed out for " + BotName);
                     });
                 }
@@ -657,6 +685,8 @@ public class ChatBot : MonoBehaviour
                 MainThreadDispatcher.ExecuteOnMainThread(() =>
                 {
                     chatBubbleScript.EndThinking();
+                    cannotBeInterrupted = false;
+                    cannotBeAudioInterrupted = false;
                     Debug.LogError("Error sending prompt to " + BotName +$": {ex.Message}");
                 });
             }
@@ -707,12 +737,17 @@ public class ChatBot : MonoBehaviour
 
     public void stopRecordingAndSend()
     {
+        if (cannotBeAudioInterrupted)
+            return;
         if (speechToText)
         {
             Debug.Log("Should stop recording and send...");
             bool success = voiceRecorder.StopRecordingAndSave();
             if (success)
+            {
                 StartCoroutine(sendSpeechToTextPrompt(0.0f));
+                cannotBeAudioInterrupted = true;
+            }
             else
                 Debug.LogError("Error stopping recording and saving!");
         } else
@@ -753,6 +788,7 @@ public class ChatBot : MonoBehaviour
                         return messageContent;
                     } else
                     {
+                        cannotBeAudioInterrupted = false;
                         throw new Exception("Failed to retrieve data. Status code: " + response.StatusCode);
                     }
                     
@@ -760,7 +796,7 @@ public class ChatBot : MonoBehaviour
             }
         } else 
         {
-            
+            cannotBeAudioInterrupted = false;
             throw new Exception("No correct speechToText API selected!");
         }
     }
@@ -788,6 +824,7 @@ public class ChatBot : MonoBehaviour
                 {
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
+                        cannotBeAudioInterrupted = false;
                         Debug.LogError("Sending speech to text prompt timed out for " + BotName);
                     });
                 }
@@ -796,6 +833,7 @@ public class ChatBot : MonoBehaviour
             {
                 MainThreadDispatcher.ExecuteOnMainThread(() =>
                 {
+                    cannotBeAudioInterrupted = false;
                     Debug.LogError("Error sending speech to text prompt: " + ex.Message);
                 });
             }
