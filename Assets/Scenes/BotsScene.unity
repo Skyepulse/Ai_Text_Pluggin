@@ -313,26 +313,26 @@ MonoBehaviour:
   AiApiChoice: 0
   PORT: 1234
   textToSpeech: 1
-  textToSpeechChoice: 0
+  textToSpeechChoice: 1
   speechToText: 1
   speechToTextChoice: 0
-  VoiceId: 54mvSiECXMNzQzq7J9Nb
+  VoiceId: 8pogvGdmno7RZZTfMA59
   hearingDistance: 10
-  openAiVoice: 3
-  BotName: George
-  YourName: Johnny
-  BaseMainTreat: An old grumpy man.
-  RelationshipToPlayer: Your Grandson
+  openAiVoice: 0
+  BotName: Gertrude
+  YourName: Becky
+  BaseMainTreat: A nice old lady
+  RelationshipToPlayer: Your GrandDaughter
   personnality:
   - Time: 0
     TypeOfEvent: 4
-    ShortExplanation: You were a soldier during the second World War.
-  - Time: 2
-    TypeOfEvent: 3
-    ShortExplanation: You feel insecure on what AI  may do to the new generations.
+    ShortExplanation: You killed your first husband
   - Time: 1
     TypeOfEvent: 3
-    ShortExplanation: You feel nostalgic of the good old days.
+    ShortExplanation: You feel regret
+  - Time: 2
+    TypeOfEvent: 1
+    ShortExplanation: You are working to become a better person
   followingCamera: {fileID: 1400866759}
 --- !u!4 &452123850
 Transform:

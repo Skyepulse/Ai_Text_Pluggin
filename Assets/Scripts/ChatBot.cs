@@ -851,6 +851,7 @@ public class ChatBot : MonoBehaviour
                     MainThreadDispatcher.ExecuteOnMainThread(() =>
                     {
                         sendUserPrompt(response);
+                        Debug.Log("Received speech to text prompt: " + response);
                     });
                 }
                 else

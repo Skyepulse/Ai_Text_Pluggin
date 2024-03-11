@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using System.IO;
 using System;
@@ -31,6 +32,7 @@ public class VoiceRecorder : MonoBehaviour
     private void Start()
     {
         saveFilePath = Application.temporaryCachePath + "/";
+        Debug.Log("Save path: " + saveFilePath);
     }
 
     public void StartRecording()
