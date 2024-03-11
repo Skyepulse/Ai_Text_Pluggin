@@ -9,6 +9,7 @@ public class VoiceRecorder : MonoBehaviour
     private string microphoneName;
     private string saveFilePath;
     private string filename = "playerVoice.wav";
+    [HideInInspector]
     public bool hasFinishedSaving = false;
     [HideInInspector]
     public string Filename

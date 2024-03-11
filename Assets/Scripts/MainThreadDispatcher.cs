@@ -57,4 +57,9 @@ public class MainThreadDispatcher : MonoBehaviour
             action?.Invoke();
         }
     }
+
+    public void write(string message)
+    {
+        Debug.Log(message);
+    }
 }

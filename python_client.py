@@ -77,8 +77,7 @@ class question_summarizer:
             if not question == "" and not response == "":
                 
                 summarized_response = self.summarize(response)
-                summarized_question = self.summarize(question)
-                to_send = f"Question: {summarized_question} Your response: {summarized_response}"
+                to_send = f"Question: {question} Your response: {summarized_response}"
                 success = self.client.send_message(to_send)
                 if not success:
                     print("Error sending message, terminating communication.")

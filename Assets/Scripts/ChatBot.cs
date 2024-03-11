@@ -61,6 +61,8 @@ public class ChatBot : MonoBehaviour
     [SerializeField] private speechToTextType speechToTextChoice;
     [SerializeField]
     private string VoiceId;
+    [SerializeField]
+    private float hearingDistance = 10f;
 
     public enum openAiVoiceType
     {
@@ -102,8 +104,11 @@ public class ChatBot : MonoBehaviour
     
     
     private string prefabPath = "ChatBubble";
+    private string prefabPathHearing = "Hearing";
     private GameObject chatBubblePrefab;
     private ChatBubble chatBubbleScript;
+    private GameObject hearingPrefab;
+    private Hearing hearingScript;
     private PersonnalityCreator personnalityCreator;
     private VoiceRecorder voiceRecorder;
     private string saveFileName;
@@ -513,6 +518,26 @@ public class ChatBot : MonoBehaviour
             //Debug.LogError("ChatBubble prefab not found!");
         }
 
+        //Instanciate a hearing collider from prefab as a child of the player named "Hearing"
+        GameObject hearingPrefab = Resources.Load<GameObject>(prefabPathHearing);
+        if(hearingPrefab != null)
+        {
+            hearingPrefab = Instantiate(hearingPrefab, this.transform.position, Quaternion.identity, this.transform);
+            hearingScript = hearingPrefab.GetComponent<Hearing>();
+            if(hearingScript != null)
+            {
+                hearingScript.HearingDistance = hearingDistance;
+            }
+            else
+            {
+                //Debug.LogError("Hearing script not found!");
+            }
+        }
+        else
+        {
+            //Debug.LogError("Hearing prefab not found!");
+        }
+
         Python_CScript.instance.chatBots.Add(BotName, this);
     }
 
@@ -738,7 +763,15 @@ public class ChatBot : MonoBehaviour
     public void stopRecordingAndSend()
     {
         if (cannotBeAudioInterrupted)
+        {
+            Debug.Log("Already processing a message, cannot be interrupted by another one!");
             return;
+        }
+        if(!hearingScript.CanHearPlayer)
+        {
+            Debug.Log("Bot chosen not in range to hear the player! Please stay in hearing distance until the end of the message.");
+            return;
+        }
         if (speechToText)
         {
             Debug.Log("Should stop recording and send...");
@@ -853,6 +886,7 @@ public class ChatBotEditor : Editor
     SerializedProperty openAiVoiceType;
     SerializedProperty speechToText;
     SerializedProperty speechToTextType;
+    SerializedProperty hearingDistance;
     SerializedProperty botNameProp;
     SerializedProperty yourNameProp;
     SerializedProperty baseMainTreatProp;
@@ -871,6 +905,7 @@ public class ChatBotEditor : Editor
         openAiVoiceType = serializedObject.FindProperty("openAiVoice");
         speechToText = serializedObject.FindProperty("speechToText");
         speechToTextType = serializedObject.FindProperty("speechToTextChoice");
+        hearingDistance = serializedObject.FindProperty("hearingDistance");
         botNameProp = serializedObject.FindProperty("BotName");
         yourNameProp = serializedObject.FindProperty("YourName");
         baseMainTreatProp = serializedObject.FindProperty("BaseMainTreat");
@@ -907,6 +942,7 @@ public class ChatBotEditor : Editor
         if (speechToText.boolValue)
         {
             EditorGUILayout.PropertyField(speechToTextType, new GUIContent("Speech To Text Choice"));
+            EditorGUILayout.PropertyField(hearingDistance, new GUIContent("Max Hearing Distance"));
         }
 
         // Display other fields
