@@ -19,13 +19,13 @@ public class main : MonoBehaviour
         }
         */
 
-        if(Input.GetKeyDown(KeyCode.E))
+        if(Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.JoystickButton1))
         {
             ChatBot chatBot = george.GetComponent<ChatBot>();
             chatBot.startRecording();
         }
 
-        if(Input.GetKeyUp(KeyCode.E))
+        if(Input.GetKeyUp(KeyCode.E) || Input.GetKeyUp(KeyCode.JoystickButton1))
         {
             ChatBot chatBot = george.GetComponent<ChatBot>();
             chatBot.stopRecordingAndSend();
